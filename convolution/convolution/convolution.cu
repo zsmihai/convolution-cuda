@@ -39,8 +39,8 @@ __global__ void ConvolutionKernel(
 	blockMatrix[blockIndex] = 0;
 	blockMatrix[blockIndex] = (sourceIndexX >= 0 && sourceIndex < ImageWidth && sourceIndexY >= 0 && sourceIndexY < ImageHeight)? SourceMatrix[sourceIndex] : 0;
 
-	cg::sync(cta);
-
+	//cg::sync(cta);
+	
 	if (threadIdx.x < BLOCKDIM_W + KernelRadius && threadIdx.x >= KernelRadius &&
 		threadIdx.y < BLOCKDIM_H + KernelRadius && threadIdx.y >= KernelRadius)
 	{
@@ -53,13 +53,13 @@ __global__ void ConvolutionKernel(
 			{
 
 				accumulator += KernelMatrix[(kernelY + KernelRadius) * (2 * KernelRadius + 1) + (kernelY + KernelRadius)] * 
-						blockMatrix[(threadIdx.y + kernelY) * blockWidth + (threadIdx.x + kernelX)];
+						blockMatrix[(threadIdx.y + kernelY) * blockHeight + (threadIdx.x + kernelX)];
 			}
 		}
 
 		DestinationMatrix[sourceIndex] = accumulator;
 	}
-
+	
 }
 
 extern "C"
