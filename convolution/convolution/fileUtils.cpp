@@ -12,7 +12,7 @@ ReadSampleMatrix(
 }
 
 bool
-readKernel(
+ReadKernel(
 	PBYTE *	Matrix,
 	unsigned int * MatrixWidth,
 	unsigned int * MatrixHeight
@@ -56,8 +56,15 @@ ReadMatrix(
 	}
 
 	*Matrix = matrix;
-	*MatrixHeight = matrixHeight;
-	*MatrixWidth = matrixWidth;
+	
+	if (NULL != MatrixHeight)
+	{
+		*MatrixHeight = matrixHeight;
+	}
 
+	if (NULL != MatrixWidth)
+	{
+		*MatrixWidth = matrixWidth;
+	}
 	return true;
 }

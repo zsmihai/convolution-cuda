@@ -6,38 +6,56 @@
 #include "types.h"
 #include "fileUtils.h"
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
+cudaError_t
+convolutionWithCuda(
+	PBYTE *	DestinationMatrix,
+	BYTE *	SourceMatrix,
+	int ImageWidth,
+	int ImageHeight,
+	BYTE * KernelMatrix,
+	int KernelRadius
+);
 
-__global__ void addKernel(int *c, const int *a, const int *b)
-{
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
-}
+extern "C"
+void
+ConvolutionGPU(
+	BYTE * DestinationMatrix,
+	BYTE * SourceMatrix,
+	int ImageWidth,
+	int ImageHeight,
+	BYTE * KernelMatrix,
+	int KernelRadius
+);
 
 int main()
 {
-    const int arraySize = 5;
-    const int a[arraySize] = { 1, 2, 3, 4, 5 };
-    const int b[arraySize] = { 10, 20, 30, 40, 50 };
-    int c[arraySize] = { 0 };
-	PBYTE matrix;
-	unsigned int width, height;
+    PBYTE matrix;
+	PBYTE kernel;
+	unsigned int matrixWidth, matrixHeight;
+	unsigned int kernelRadius, kernelLength;
+	PBYTE resultMatrix;
 
-	if (!ReadSampleMatrix(&matrix, &width, &height))
+	if (!ReadSampleMatrix(&matrix, &matrixWidth, &matrixHeight))
+	{
+		return 1;
+	}
+
+	if (!ReadKernel(&kernel, &kernelLength, NULL))
 	{
 		return 1;
 	}
 	
-	// Add vectors in parallel.
-    cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
+	kernelRadius = (kernelLength - 1) / 2;
+
+	printf("Matrices read\n");
+
+    cudaError_t cudaStatus = convolutionWithCuda(&resultMatrix, matrix, matrixWidth, matrixHeight, kernel, kernelRadius);
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addWithCuda failed!");
+        fprintf(stderr, "convolutionWithCuda failed!");
         return 1;
     }
 
-    printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-        c[0], c[1], c[2], c[3], c[4]);
-
+    
     // cudaDeviceReset must be called before exiting in order for profiling and
     // tracing tools such as Nsight and Visual Profiler to show complete traces.
     cudaStatus = cudaDeviceReset();
@@ -49,12 +67,20 @@ int main()
     return 0;
 }
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
+cudaError_t
+convolutionWithCuda(
+	PBYTE *	DestinationMatrix,
+	BYTE *	SourceMatrix,
+	int ImageWidth,
+	int ImageHeight,
+	BYTE * KernelMatrix,
+	int KernelRadius
+)
 {
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
+	BYTE *deviceSourceMatrix = NULL;
+    BYTE *deviceDestinationMatrix = NULL;
+	BYTE *resultMatrix = NULL;	
+    BYTE *kernel = NULL;
     cudaError_t cudaStatus;
 
     // Choose which GPU to run on, change this on a multi-GPU system.
@@ -65,40 +91,44 @@ cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
         goto Error;
     }
 
+	resultMatrix = (PBYTE)malloc(ImageWidth * ImageHeight * sizeof(BYTE));
+	
     // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)&deviceSourceMatrix, ImageHeight * ImageWidth * sizeof(BYTE));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
     }
 
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)&deviceDestinationMatrix, ImageHeight * ImageWidth * sizeof(BYTE));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
     }
 
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)&kernel, (KernelRadius * 2 + 1)* (KernelRadius * 2 + 1)* sizeof(BYTE));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
     }
 
     // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
+    cudaStatus = cudaMemcpy(deviceSourceMatrix, SourceMatrix, ImageHeight * ImageWidth * sizeof(BYTE), cudaMemcpyHostToDevice);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
-    cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
+    cudaStatus = cudaMemcpy(kernel, KernelMatrix, (KernelRadius * 2 + 1)* (KernelRadius * 2 + 1) * sizeof(BYTE), cudaMemcpyHostToDevice);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
     // Launch a kernel on the GPU with one thread for each element.
-    addKernel<<<1, size>>>(dev_c, dev_a, dev_b);
+	ConvolutionGPU(
+		deviceDestinationMatrix, deviceSourceMatrix, ImageWidth, ImageHeight, kernel, KernelRadius
+	);
 
     // Check for any errors launching the kernel
     cudaStatus = cudaGetLastError();
@@ -116,16 +146,18 @@ cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
     }
 
     // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaStatus = cudaMemcpy(resultMatrix, deviceDestinationMatrix, ImageHeight * ImageWidth * sizeof(BYTE), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
 Error:
-    cudaFree(dev_c);
-    cudaFree(dev_a);
-    cudaFree(dev_b);
+    cudaFree(deviceDestinationMatrix);
+    cudaFree(deviceSourceMatrix);
+    cudaFree(kernel);
     
+	*DestinationMatrix = resultMatrix;
+
     return cudaStatus;
 }

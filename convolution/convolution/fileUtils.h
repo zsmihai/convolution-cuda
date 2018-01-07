@@ -4,6 +4,13 @@
 #include <errno.h>
 
 bool
+ReadKernel(
+	PBYTE *	Matrix,
+	unsigned int * MatrixWidth,
+	unsigned int * MatrixHeight
+);
+
+bool
 ReadMatrix(
 	const char* Filename,
 	PBYTE *	Matrix,
