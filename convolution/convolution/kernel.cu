@@ -55,6 +55,14 @@ int main()
         return 1;
     }
 
+	cudaDeviceSynchronize();
+
+	if (!WriteResultMatrix(resultMatrix, matrixWidth, matrixHeight))
+	{
+		return 1;
+	}
+
+	printf("Result written\n");
     
     // cudaDeviceReset must be called before exiting in order for profiling and
     // tracing tools such as Nsight and Visual Profiler to show complete traces.
@@ -93,7 +101,7 @@ convolutionWithCuda(
 
 	resultMatrix = (PBYTE)malloc(ImageWidth * ImageHeight * sizeof(BYTE));
 	
-    // Allocate GPU buffers for three vectors (two input, one output)    .
+    // Allocate GPU buffers for three vectors (two input, one output).
     cudaStatus = cudaMalloc((void**)&deviceSourceMatrix, ImageHeight * ImageWidth * sizeof(BYTE));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
@@ -106,7 +114,7 @@ convolutionWithCuda(
         goto Error;
     }
 
-    cudaStatus = cudaMalloc((void**)&kernel, (KernelRadius * 2 + 1)* (KernelRadius * 2 + 1)* sizeof(BYTE));
+    cudaStatus = cudaMalloc((void**)&kernel, (KernelRadius * 2 + 1) * (KernelRadius * 2 + 1) * sizeof(BYTE));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
@@ -119,7 +127,7 @@ convolutionWithCuda(
         goto Error;
     }
 
-    cudaStatus = cudaMemcpy(kernel, KernelMatrix, (KernelRadius * 2 + 1)* (KernelRadius * 2 + 1) * sizeof(BYTE), cudaMemcpyHostToDevice);
+    cudaStatus = cudaMemcpy(kernel, KernelMatrix, (KernelRadius * 2 + 1) * (KernelRadius * 2 + 1) * sizeof(BYTE), cudaMemcpyHostToDevice);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;

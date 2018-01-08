@@ -25,6 +25,13 @@ ReadSampleMatrix(
 	unsigned int * MatrixHeight
 );
 
+bool
+WriteResultMatrix(
+	PBYTE Matrix,
+	unsigned int MatrixWidth,
+	unsigned int MatrixHeight
+);
+
 inline
 void
 FreeMatrix(

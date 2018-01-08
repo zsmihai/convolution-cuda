@@ -22,8 +22,8 @@ __global__ void ConvolutionKernel(
 )
 {
 	cg::thread_block cta = cg::this_thread_block();
+	// matrice cu width BLOCKDIM_X + 2 * kernelRadius si heigth BLOCKDIM_Y + 2 * kernelRadius
 	extern __shared__ BYTE blockMatrix[];
-	// matrice cu width BLOCKDIM_X + 2*kernelRadius heigth BLOCKDIM_Y + 2*kernelRadius
 
 	int blockIndex;
 	int sourceIndexX, sourceIndexY, sourceIndex;
@@ -36,8 +36,7 @@ __global__ void ConvolutionKernel(
 	sourceIndexX = blockIdx.x * BLOCKDIM_W + threadIdx.x - KernelRadius;
 	sourceIndexY = blockIdx.y * BLOCKDIM_H + threadIdx.y - KernelRadius;
 	sourceIndex = sourceIndexY * ImageWidth + sourceIndexX;
-	blockMatrix[blockIndex] = 0;
-	blockMatrix[blockIndex] = (sourceIndexX >= 0 && sourceIndex < ImageWidth && sourceIndexY >= 0 && sourceIndexY < ImageHeight)? SourceMatrix[sourceIndex] : 0;
+	blockMatrix[blockIndex] = (sourceIndexX >= 0 && sourceIndex < ImageWidth && sourceIndexY >= 0 && sourceIndexY < ImageHeight) ? SourceMatrix[sourceIndex] : 0;
 
 	//cg::sync(cta);
 	
@@ -77,10 +76,10 @@ ConvolutionGPU(
 	assert(ImageHeight % BLOCKDIM_H == 0);
 
 	dim3 blocks(ImageWidth / BLOCKDIM_W, ImageHeight / (BLOCKDIM_H));
-	dim3 threads(BLOCKDIM_W + 2*KernelRadius, BLOCKDIM_H + 2*KernelRadius);
+	dim3 threads(BLOCKDIM_W + 2 * KernelRadius, BLOCKDIM_H + 2 * KernelRadius);
 
 
-	ConvolutionKernel <<<blocks, threads, (BLOCKDIM_W + 2*KernelRadius)*(BLOCKDIM_H + 2*KernelRadius) >>> (
+	ConvolutionKernel <<<blocks, threads, (BLOCKDIM_W + 2 * KernelRadius) * (BLOCKDIM_H + 2 * KernelRadius)>>> (
 		DestinationMatrix,
 		SourceMatrix,
 		ImageWidth,

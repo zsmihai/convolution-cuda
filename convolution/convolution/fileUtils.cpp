@@ -23,7 +23,7 @@ ReadKernel(
 
 bool
 ReadMatrix(
-	const char* Filename,
+	const char * Filename,
 	PBYTE *	Matrix,
 	unsigned int * MatrixWidth,
 	unsigned int * MatrixHeight
@@ -67,4 +67,41 @@ ReadMatrix(
 		*MatrixWidth = matrixWidth;
 	}
 	return true;
+}
+
+bool WriteMatrix(
+	const char * Filename,
+	PBYTE Matrix, 
+	unsigned int MatrixWidth, 
+	unsigned int MatrixHeight)
+{
+	FILE* matrixFile = fopen(Filename, "w");
+	if (NULL == matrixFile)
+	{
+		//file opening failed
+		fprintf(stderr, "ReadMatrix: fopen failed with error code %d.\n", errno);
+		return false;
+	}
+
+	fprintf(matrixFile, "%d %d\n", MatrixHeight, MatrixWidth);
+
+	for (unsigned int rowIndex = 0; rowIndex < MatrixHeight; rowIndex++)
+	{
+		for (unsigned int columnIndex = 0; columnIndex < MatrixWidth; columnIndex++)
+		{
+			fprintf(matrixFile, "%d ", Matrix[rowIndex * MatrixWidth + columnIndex]);
+		}
+		fprintf(matrixFile, "\n");
+	}
+	return true;
+}
+
+bool
+WriteResultMatrix(
+	PBYTE Matrix,
+	unsigned int MatrixWidth,
+	unsigned int MatrixHeight
+)
+{
+	return WriteMatrix("ResultMatrix.txt", Matrix, MatrixWidth, MatrixHeight);
 }
