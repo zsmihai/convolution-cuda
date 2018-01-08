@@ -3,7 +3,7 @@
 #include <cooperative_groups.h>
 #include "types.h"
 #include <vector_types.h>
-
+#include <device_functions.h>
 
 #define BLOCKDIM_H 16
 #define BLOCKDIM_W 16
@@ -32,13 +32,13 @@ __global__ void ConvolutionKernel(
 	int x, y;
 
 	//load pixel
-	blockIndex = threadIdx.y * blockHeight + threadIdx.x;
+	blockIndex = threadIdx.y * blockWidth + threadIdx.x;
 	sourceIndexX = blockIdx.x * BLOCKDIM_W + threadIdx.x - KernelRadius;
 	sourceIndexY = blockIdx.y * BLOCKDIM_H + threadIdx.y - KernelRadius;
 	sourceIndex = sourceIndexY * ImageWidth + sourceIndexX;
-	blockMatrix[blockIndex] = (sourceIndexX >= 0 && sourceIndex < ImageWidth && sourceIndexY >= 0 && sourceIndexY < ImageHeight) ? SourceMatrix[sourceIndex] : 0;
+	blockMatrix[blockIndex] = (sourceIndexX >= 0 && sourceIndexX < ImageWidth && sourceIndexY >= 0 && sourceIndexY < ImageHeight) ? SourceMatrix[sourceIndex] : 0;
 
-	//cg::sync(cta);
+	__syncthreads();
 	
 	if (threadIdx.x < BLOCKDIM_W + KernelRadius && threadIdx.x >= KernelRadius &&
 		threadIdx.y < BLOCKDIM_H + KernelRadius && threadIdx.y >= KernelRadius)
@@ -50,9 +50,9 @@ __global__ void ConvolutionKernel(
 
 			for (int kernelY = -KernelRadius; kernelY <= KernelRadius; kernelY++)
 			{
-
-				accumulator += KernelMatrix[(kernelY + KernelRadius) * (2 * KernelRadius + 1) + (kernelY + KernelRadius)] * 
-						blockMatrix[(threadIdx.y + kernelY) * blockHeight + (threadIdx.x + kernelX)];
+				int kernelIndex = (kernelY + KernelRadius) * (2 * KernelRadius + 1) + (kernelX + KernelRadius);
+				int blockMatrixIndex = (threadIdx.y + kernelY) * blockWidth + (threadIdx.x + kernelX);
+				accumulator += (KernelMatrix[kernelIndex] * blockMatrix[blockMatrixIndex]);
 			}
 		}
 
